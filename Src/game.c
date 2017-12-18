@@ -19,11 +19,6 @@ void main_menu(void) {
 	switch(selection){
 		case 1:
 			ST7735_PutStr5x7(10, 30, "* Start", 0xFFFF);
-			ST7735_PutStr5x7(10, 40, "  Help", 0xFFFF);
-			break;
-		case 2:
-			ST7735_PutStr5x7(10, 30, "  Start", 0xFFFF);
-			ST7735_PutStr5x7(10, 40, "* Help", 0xFFFF);
 			break;
 		default:
 			break;
@@ -37,17 +32,13 @@ void main_menu(void) {
 
 	if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_RESET && button0 == 1) {
 		if(selection == 1) {
-			osMessagePut(gameStateHandle, Running, 0);
-			osMessagePut(trackHandle, Engine, 0);
+			osMessagePut(gameStateHandle, Starting, 0);
+			osMessagePut(trackHandle, Start, 0);
 			ST7735_AddrSet(0,0,159,127);
 			ST7735_Clear(0x0000);
 		}
 		//else if(selection == 2) break;
 
-	} else if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_1) == GPIO_PIN_RESET && button1 == 1) {
-		selection++;
-		button1 = 0;
-		if(selection == 3) selection = 1;
 	}
 }
 
@@ -115,6 +106,24 @@ void init_enemy(void) {
         enemy[i].appear = 0;
         enemy[i].state = 1;
     }
+}
+
+void render_starting(void) {
+	uint8_t frame[4] = { 0, 40, 80, 120 };
+	uint16_t i, j, k;
+
+	//Draw player car
+	k = 0;
+	for(j=player.y; j < player.y + player.h; j++) {
+		for(i=player.x; i < player.x +  player.w; i++) {
+			ST7735_Pixel(i, j, player_pixel_data[k++]); //Draw car per pixel color
+		}
+	}
+
+	for(i=0; i < 4; i++){
+		ST7735_FillRect(0, 10 + frame[i], 5, 30 + frame[i], 0xffff);
+		ST7735_FillRect(122, 10 + frame[i], 127, 30 + frame[i], 0xffff);
+	}
 }
 
 void render_player(void) {
@@ -263,7 +272,7 @@ void update_player(float dir) {
 void check_if_over(void) {
 	if(player.col) {
 		uint16_t i,j,k = 0;
-		for(j=player.y-16;j<player.y+16;j++){
+		for(j=player.y;j<player.y+32;j++){
 			for(i=player.x;i<player.x + 30;i++){
 				ST7735_Pixel(i, j, explosion[k++]);
 			}

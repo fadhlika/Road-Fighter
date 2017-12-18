@@ -67,6 +67,7 @@ osThreadId taskUpdateGameHandle;
 osMessageQId gameStateHandle;
 osMessageQId trackHandle;
 osMessageQId trackISRHandle;
+osMessageQId trackHalfISRHandle;
 
 /* USER CODE BEGIN Variables */
 
@@ -142,6 +143,10 @@ void MX_FREERTOS_Init(void) {
   osMessageQDef(trackISR, 1, uint8_t);
   trackISRHandle = osMessageCreate(osMessageQ(trackISR), NULL);
 
+  /* definition and creation of trackHalfISR */
+  osMessageQDef(trackHalfISR, 1, uint8_t);
+  trackHalfISRHandle = osMessageCreate(osMessageQ(trackHalfISR), NULL);
+
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
   /* USER CODE END RTOS_QUEUES */
@@ -179,6 +184,12 @@ void DisplayGame(void const * argument)
 	case Main_Menu:
 		main_menu();
 		break;
+	case Starting:
+		render_starting();
+		osSignalWait(0x0001, osWaitForever);
+		game_state = Running;
+		osMessagePut(trackHandle, Engine, 0);
+		break;
 	case Running:
 		render_player();
 		render_enemy();
@@ -204,7 +215,6 @@ void SoundEffect(void const * argument)
 	HAL_TIM_Base_Start(&htim6);
 
 	osEvent event;
-	Track track;
   /* Infinite loop */
   for(;;)
   {
@@ -214,11 +224,15 @@ void SoundEffect(void const * argument)
 		  case Explosion:
 			  HAL_DAC_Stop_DMA(&hdac, DAC_CHANNEL_1);
 			  HAL_DAC_Start_DMA(&hdac, DAC_CHANNEL_1, (uint32_t*)explosion_PCM, explosion_Len, DAC_ALIGN_12B_L);
-			  osMessagePut(trackISRHandle, Explosion_started, 0);
+			  osMessagePut(trackHalfISRHandle, Explosion_started, 0);
 			  break;
 		  case Engine:
 			  HAL_DAC_Stop_DMA(&hdac, DAC_CHANNEL_1);
 			  HAL_DAC_Start_DMA(&hdac, DAC_CHANNEL_1, (uint32_t*)engine_PCM, engine_Len, DAC_ALIGN_12B_L);
+			  break;
+		  case Start:
+			  HAL_DAC_Start_DMA(&hdac, DAC_CHANNEL_1, (uint32_t*)start_PCM, start_Len, DAC_ALIGN_12B_L);
+			  osMessagePut(trackISRHandle, Start, 0);
 			  break;
 		  default:
 			  HAL_DAC_Stop_DMA(&hdac, DAC_CHANNEL_1);
@@ -234,7 +248,6 @@ void SoundEffect(void const * argument)
 void UpdateGame(void const * argument)
 {
   /* USER CODE BEGIN UpdateGame */
-	uint32_t lastTimeWakeUp = osKernelSysTick();
   /* Infinite loop */
   for(;;)
   {
@@ -254,11 +267,25 @@ void UpdateGame(void const * argument)
 
 /* USER CODE BEGIN Application */
 void HAL_DAC_ConvHalfCpltCallbackCh1(DAC_HandleTypeDef* hdac) {
-	osEvent event = osMessageGet(trackISRHandle, 0);
+	osEvent event = osMessageGet(trackHalfISRHandle, 0);
 	if(event.status == osEventMessage) {
 		switch(event.value.v){
 		case Explosion_started:
 			HAL_DAC_Stop_DMA(hdac, DAC_CHANNEL_1);
+			break;
+		default:
+			break;
+		}
+	}
+}
+
+void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef* hdac) {
+	osEvent event = osMessageGet(trackISRHandle, 0);
+	if(event.status == osEventMessage) {
+		switch(event.value.v){
+		case Start:
+			HAL_DAC_Stop_DMA(hdac, DAC_CHANNEL_1);
+			osSignalSet(taskDisplayGameHandle, 0x0001);
 			break;
 		default:
 			break;

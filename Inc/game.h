@@ -11,6 +11,7 @@ static int score = 0;
 
 typedef enum _GameState {
 	Main_Menu,
+	Starting,
 	Running,
 	Game_Over
 } GameState;
@@ -18,7 +19,8 @@ typedef enum _GameState {
 typedef enum _Track {
 	Engine,
 	Explosion,
-	Explosion_started
+	Explosion_started,
+	Start
 } Track;
 
 typedef struct _Player {
@@ -48,6 +50,7 @@ void game_over(void);
 void init_player(void);
 void init_enemy(void);
 
+void render_starting(void);
 void render_player(void);
 void render_road(void);
 void render_enemy(void);
